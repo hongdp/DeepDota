@@ -1,0 +1,6 @@
+*.pyc
+API_KEY
+.venv
+.vscode
+*.binary
+*.tfrecord
