@@ -4,10 +4,10 @@ import pickle
 from functools import partial
 from multiprocessing import Pool
 
-NUM_MATCHES = 5000
-MATCH_LIST_FILE = 'match_data.binary'
-MATCH_DETAILS_FILE = 'match_detail.binary'
-DOWNLOAD_MATCH_LIST = False
+NUM_MATCHES = 50000
+MATCH_LIST_FILE = 'match_data_50000.binary'
+MATCH_DETAILS_FILE = 'match_detail_50000.binary'
+DOWNLOAD_MATCH_LIST = True
 DOWNLOAD_MATCH_DETAILS = True
 API_KEY_FILE = 'API_KEY'
 
@@ -31,7 +31,6 @@ def download_match_list(num_matches, api_key):
 
 def download_match_detail(match, api_key):
     match_id = match['match_id']
-    print(api_key)
     res = requests.get(
         'https://api.opendota.com/api/matches/%d?api_key=%s' % (match_id, api_key))
     if res.status_code == 200:
@@ -49,7 +48,7 @@ def main():
 
     if DOWNLOAD_MATCH_LIST:
         match_list = download_match_list(NUM_MATCHES, api_key)
-        with open(MATCH_LIST_FILE, 'wb') as f:
+        with open(MATCH_LIST_FILE, 'w+b') as f:
             pickle.dump(match_list, f)
     else:
         with open(MATCH_LIST_FILE, 'rb') as f:
@@ -60,7 +59,7 @@ def main():
             download_match_detail, api_key=api_key)
         match_details = pool.map(download_match_detail_with_api, match_list)
 
-        with open(MATCH_DETAILS_FILE, 'wb') as f:
+        with open(MATCH_DETAILS_FILE, 'w+b') as f:
             pickle.dump(match_details, f)
 
 
