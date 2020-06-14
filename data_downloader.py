@@ -1,5 +1,6 @@
 import requests
 import pickle
+import glob
 
 from functools import partial
 from multiprocessing import Pool
@@ -57,10 +58,12 @@ def main():
     if DOWNLOAD_MATCH_DETAILS:
         download_match_detail_with_api = partial(
             download_match_detail, api_key=api_key)
+
         assert(len(match_list) > 0)
-        num_shard = (len(match_list)-1)//MAX_MATCHES_PER_SHARD + 1
+        num_shards = (len(match_list)-1)//MAX_MATCHES_PER_SHARD + 1
+        existing_num_shards = len(glob.glob(MATCH_DETAILS_FILE+'*'))
         with Pool(4) as pool:
-            for shard in range(num_shard):
+            for shard in range(existing_num_shards, num_shards):
                 print('downloading shard %d' % (shard))
                 begin = shard*MAX_MATCHES_PER_SHARD
                 end = (shard+1)*MAX_MATCHES_PER_SHARD if (shard+1) * \
@@ -68,7 +71,7 @@ def main():
                 shard_matches = match_list[begin: end]
                 match_details = list(tqdm(pool.imap(
                     download_match_detail_with_api, shard_matches), total=len(shard_matches)))
-                with open(MATCH_DETAILS_FILE+'.%d-of-%d' % (shard, num_shard), 'w+b') as f:
+                with open(MATCH_DETAILS_FILE+'.%d-of-%d' % (shard, num_shards), 'w+b') as f:
                     pickle.dump(match_details, f)
 
 
