@@ -1,6 +1,8 @@
 import tensorflow as tf
 
-TRAINING_DATA_FILE = 'data/training_data_50k.tfrecord'
+TRAINING_DATA_FILE = 'data/training_data_50k_train.tfrecord'
+EVAL_DATA_FILE = 'data/training_data_50k_test.tfrecord'
+MODEL_PATH = 'models/prediction_model_32'
 
 
 def _get_feature_parser():
@@ -29,17 +31,19 @@ class MyModel(tf.keras.Model):
         super(MyModel, self).__init__()
         # Embedding layer with size = 32.
         embedding_size = 32
-        self.embed_radiant = tf.keras.layers.Embedding(
-            150, embedding_size, input_length=5)
-        self.embed_dire = tf.keras.layers.Embedding(
-            150, embedding_size, input_length=5)
+        # kernel_regularizer = tf.keras.regularizers.l2(0.001)
+        # bias_regularizer = tf.keras.regularizers.l2(0.001)
+        kernel_regularizer = None
+        bias_regularizer = None
+        self.embed = tf.keras.layers.Embedding(
+            150, embedding_size, input_length=5, embeddings_regularizer=kernel_regularizer)
         self.dense_layers = []
         self.dense_layers.append(
-            tf.keras.layers.Dense(embedding_size, activation=tf.nn.relu))
+            tf.keras.layers.Dense(embedding_size, activation=tf.nn.relu, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer))
         self.dense_layers.append(
-            tf.keras.layers.Dense(embedding_size//2, activation=tf.nn.relu))
+            tf.keras.layers.Dense(embedding_size//2, activation=tf.nn.relu, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer))
         self.dense_layers.append(
-            tf.keras.layers.Dense(1, activation=tf.nn.relu))
+            tf.keras.layers.Dense(1, activation=tf.nn.sigmoid, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer))
 
     def call(self, inputs):
         '''
@@ -50,9 +54,9 @@ class MyModel(tf.keras.Model):
         }
         '''
         embed_radiant_val = tf.math.reduce_sum(
-            self.embed_radiant(inputs['radiant_heros']), axis=1)
+            self.embed(inputs['radiant_heros']), axis=1)
         embed_dire_val = tf.math.reduce_sum(
-            self.embed_dire(inputs['dire_heros']), axis=1)
+            self.embed(inputs['dire_heros']), axis=1)
         x = tf.concat([embed_radiant_val, embed_dire_val], axis=1)
         for dense_layer in self.dense_layers:
             x = dense_layer(x)
@@ -60,14 +64,22 @@ class MyModel(tf.keras.Model):
 
 
 def main():
-    raw_dataset = tf.data.TFRecordDataset(TRAINING_DATA_FILE)
-    parsed_dataset = raw_dataset.map(_get_feature_parser())
-    dataset = parsed_dataset.batch(1024).repeat(64)
+    training_dataset = tf.data.TFRecordDataset(TRAINING_DATA_FILE)
+    training_dataset = training_dataset.map(_get_feature_parser())
+    training_dataset = training_dataset.shuffle(10000).batch(1024)
+
+    eval_dataset = tf.data.TFRecordDataset(EVAL_DATA_FILE)
+    eval_dataset = eval_dataset.map(_get_feature_parser())
+    eval_dataset = eval_dataset.batch(1024)
+
     model = MyModel()
-    model.compile(optimizer=tf.keras.optimizers.Adam(0.01),
-                  loss=tf.keras.losses.BinaryCrossentropy(), metrics=['accuracy'])
-    model.fit(dataset)
-    model.save('prediction_model')
+    model.compile(optimizer=tf.keras.optimizers.Adam(0.001),
+                  loss=tf.keras.losses.BinaryCrossentropy(), metrics=['binary_accuracy'])
+
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir='logs/')
+    model.fit(training_dataset, epochs=64, callbacks=[
+              tensorboard_callback], validation_data=eval_dataset)
+    model.save(MODEL_PATH)
 
 
 if __name__ == '__main__':

@@ -6,3 +6,5 @@ API_KEY
 *.tfrecord
 /models
 /data
+/visualization
+/logs

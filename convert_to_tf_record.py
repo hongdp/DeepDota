@@ -3,8 +3,10 @@ import glob
 import tensorflow as tf
 from tqdm import tqdm
 
-DATA_FILE_PATTERN = 'data/match_detail_50000.binary.*'
-TF_RECORD_FILE = 'data/training_data_50k.tfrecord'
+DATA_FILE_PATTERN = 'data/match_detail_50k.binary.*'
+TRAIN_TF_RECORD_FILE = 'data/training_data_50k_train.tfrecord'
+TEST_TF_RECORD_FILE = 'data/training_data_50k_test.tfrecord'
+TRAIN_TEST_RATIO = 9
 
 
 def SerializeExample(match):
@@ -34,20 +36,28 @@ def SerializeExample(match):
 
 def main():
     files = glob.glob(DATA_FILE_PATTERN)
-    with tf.io.TFRecordWriter(TF_RECORD_FILE) as writer:
-        for idx, file in enumerate(files):
-            print('processing shard %d' % idx)
-            with open(file, 'rb') as f:
-                all_match_details = pickle.load(f)
-                for match in tqdm(all_match_details):
-                    if match == None:
-                        continue
-                    example = SerializeExample(match)
-                    if example:
-                        writer.write(example)
-                    else:
-                        print("invalid match")
-                        continue
+    test_to_all_ratio = TRAIN_TEST_RATIO + 1
+    counter = 0
+    with tf.io.TFRecordWriter(TRAIN_TF_RECORD_FILE) as train_writer:
+        with tf.io.TFRecordWriter(TEST_TF_RECORD_FILE) as test_writer:
+            for idx, file in enumerate(files):
+                print('processing shard %d' % idx)
+                with open(file, 'rb') as f:
+                    all_match_details = pickle.load(f)
+
+                    for match in tqdm(all_match_details):
+                        if match == None:
+                            continue
+                        example = SerializeExample(match)
+                        if example:
+                            if counter % test_to_all_ratio == 0:
+                                test_writer.write(example)
+                            else:
+                                train_writer.write(example)
+                            counter += 1
+                        else:
+                            print("invalid match")
+                            continue
 
 
 if __name__ == '__main__':
