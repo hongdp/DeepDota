@@ -2,7 +2,9 @@ import tensorflow as tf
 
 TRAINING_DATA_FILE = 'data/training_data_50k_train.tfrecord'
 EVAL_DATA_FILE = 'data/training_data_50k_test.tfrecord'
-MODEL_PATH = 'models/prediction_model_32'
+MODEL_NAME = 'prediction_model_16'
+MODEL_DIR = 'models/' + MODEL_NAME
+TENSORBOARD_DIR = 'logs/' + MODEL_NAME
 
 
 def _get_feature_parser():
@@ -30,11 +32,11 @@ class MyModel(tf.keras.Model):
     def __init__(self):
         super(MyModel, self).__init__()
         # Embedding layer with size = 32.
-        embedding_size = 32
-        # kernel_regularizer = tf.keras.regularizers.l2(0.001)
-        # bias_regularizer = tf.keras.regularizers.l2(0.001)
-        kernel_regularizer = None
-        bias_regularizer = None
+        embedding_size = 16
+        kernel_regularizer = tf.keras.regularizers.l2(0.001)
+        bias_regularizer = tf.keras.regularizers.l2(0.001)
+        # kernel_regularizer = None
+        # bias_regularizer = None
         self.embed = tf.keras.layers.Embedding(
             150, embedding_size, input_length=5, embeddings_regularizer=kernel_regularizer)
         self.dense_layers = []
@@ -76,10 +78,20 @@ def main():
     model.compile(optimizer=tf.keras.optimizers.Adam(0.001),
                   loss=tf.keras.losses.BinaryCrossentropy(), metrics=['binary_accuracy'])
 
-    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir='logs/')
-    model.fit(training_dataset, epochs=64, callbacks=[
-              tensorboard_callback], validation_data=eval_dataset)
-    model.save(MODEL_PATH)
+    callbacks = [
+        tf.keras.callbacks.EarlyStopping(
+            # Stop training when `val_loss` is no longer improving
+            monitor='val_binary_accuracy',
+            # "no longer improving" being defined as "no better than 1e-2 less"
+            min_delta=0,
+            # "no longer improving" being further defined as "for at least 2 epochs"
+            patience=2,
+            verbose=1),
+        tf.keras.callbacks.TensorBoard(log_dir=TENSORBOARD_DIR)
+    ]
+    model.fit(training_dataset, epochs=64, callbacks=callbacks,
+              validation_data=eval_dataset)
+    model.save(MODEL_DIR)
 
 
 if __name__ == '__main__':
