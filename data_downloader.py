@@ -57,7 +57,8 @@ def main():
     if DOWNLOAD_MATCH_DETAILS:
         download_match_detail_with_api = partial(
             download_match_detail, api_key=api_key)
-        num_shard = len(match_list)//MAX_MATCHES_PER_SHARD + 1
+        assert(len(match_list) > 0)
+        num_shard = (len(match_list)-1)//MAX_MATCHES_PER_SHARD + 1
         with Pool(4) as pool:
             for shard in range(num_shard):
                 print('downloading shard %d' % (shard))
