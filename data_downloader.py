@@ -7,8 +7,8 @@ from multiprocessing import Pool
 from tqdm import tqdm
 
 NUM_MATCHES = 50000
-MATCH_LIST_FILE = 'match_data_50000.binary'
-MATCH_DETAILS_FILE = 'match_detail_50000.binary'
+MATCH_LIST_FILE = 'data/match_data_50000.binary'
+MATCH_DETAILS_FILE = 'data/match_detail_50000.binary'
 DOWNLOAD_MATCH_LIST = False
 DOWNLOAD_MATCH_DETAILS = True
 MAX_MATCHES_PER_SHARD = 10000
@@ -70,7 +70,7 @@ def main():
                     MAX_MATCHES_PER_SHARD < len(match_list) else len(match_list)
                 shard_matches = match_list[begin: end]
                 match_details = list(tqdm(pool.imap(
-                    download_match_detail_with_api, shard_matches), total=len(shard_matches)))
+                    download_match_detail_with_api, shard_matches), total=len(shard_matches)))IN
                 with open(MATCH_DETAILS_FILE+'.%d-of-%d' % (shard, num_shards), 'w+b') as f:
                     pickle.dump(match_details, f)
 

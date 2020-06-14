@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-TRAINING_DATA_FILE = 'training_data.tfrecord'
+TRAINING_DATA_FILE = 'data/training_data_50k.tfrecord'
 
 
 def _get_feature_parser():
@@ -53,10 +53,7 @@ class MyModel(tf.keras.Model):
             self.embed_radiant(inputs['radiant_heros']), axis=1)
         embed_dire_val = tf.math.reduce_sum(
             self.embed_dire(inputs['dire_heros']), axis=1)
-        print(embed_dire_val)
-
         x = tf.concat([embed_radiant_val, embed_dire_val], axis=1)
-        print(x)
         for dense_layer in self.dense_layers:
             x = dense_layer(x)
         return x
@@ -65,11 +62,12 @@ class MyModel(tf.keras.Model):
 def main():
     raw_dataset = tf.data.TFRecordDataset(TRAINING_DATA_FILE)
     parsed_dataset = raw_dataset.map(_get_feature_parser())
-    dataset = parsed_dataset.batch(128).repeat(100)
+    dataset = parsed_dataset.batch(1024).repeat(64)
     model = MyModel()
     model.compile(optimizer=tf.keras.optimizers.Adam(0.01),
                   loss=tf.keras.losses.BinaryCrossentropy(), metrics=['accuracy'])
     model.fit(dataset)
+    model.save('prediction_model')
 
 
 if __name__ == '__main__':
