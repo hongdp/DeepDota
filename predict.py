@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-MODEL_PATH = 'models/prediction_model'
+MODEL_PATH = 'models/prediction_model_16'
 
 
 def GetHerosFromStdIn(list_name):

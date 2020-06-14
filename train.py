@@ -2,7 +2,7 @@ import tensorflow as tf
 
 TRAINING_DATA_FILE = 'data/training_data_50k_train.tfrecord'
 EVAL_DATA_FILE = 'data/training_data_50k_test.tfrecord'
-MODEL_NAME = 'prediction_model_16'
+MODEL_NAME = 'prediction_model_128_attension'
 MODEL_DIR = 'models/' + MODEL_NAME
 TENSORBOARD_DIR = MODEL_DIR + '/logs/'
 
@@ -27,12 +27,11 @@ def _get_feature_parser():
     return _parse_function
 
 
-class MyModel(tf.keras.Model):
+class BaselineModel(tf.keras.Model):
 
     def __init__(self):
-        super(MyModel, self).__init__()
-        # Embedding layer with size = 32.
-        embedding_size = 16
+        super(BaselineModel, self).__init__()
+        embedding_size = 32
         kernel_regularizer = tf.keras.regularizers.l2(0.001)
         bias_regularizer = tf.keras.regularizers.l2(0.001)
         # kernel_regularizer = None
@@ -65,16 +64,66 @@ class MyModel(tf.keras.Model):
         return x
 
 
+class AttensionModel(tf.keras.Model):
+
+    def __init__(self):
+        super(AttensionModel, self).__init__()
+        embedding_size = 128
+        kernel_regularizer = tf.keras.regularizers.l2(1e-5)
+        bias_regularizer = tf.keras.regularizers.l2(1e-5)
+        # kernel_regularizer = None
+        # bias_regularizer = None
+        self.embed = tf.keras.layers.Embedding(
+            150, embedding_size, input_length=5, embeddings_regularizer=kernel_regularizer)
+        self.attension_layer = tf.keras.layers.Attention()
+        self.dense_layers = []
+        self.dense_layers.append(
+            tf.keras.layers.Dense(embedding_size*2, activation=tf.nn.relu, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer))
+        self.dense_layers.append(
+            tf.keras.layers.Dense(embedding_size, activation=tf.nn.relu, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer))
+        self.dense_layers.append(
+            tf.keras.layers.Dense(1, activation=tf.nn.sigmoid, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer))
+        self.dropout = tf.keras.layers.Dropout(.2)
+
+    def call(self, inputs, training=False):
+        '''
+        inputs: {
+            'dire_heros': <tf.Tensor: id=66, shape=(5,), dtype=int64, numpy=array([ 2, 72, 25, 87, 11])>,
+            'radiant_heros': <tf.Tensor: id=67, shape=(5,), dtype=int64, numpy=array([ 91,  52, 104,  86,  17])>,
+            'radiant_win': <tf.Tensor: id=68, shape=(), dtype=float32, numpy=0.0>
+        }
+        '''
+        embed_radiant_val = self.embed(inputs['radiant_heros'])
+        embed_dire_val = self.embed(inputs['dire_heros'])
+
+        embed_radiant_val_self = tf.math.reduce_sum(self.attension_layer(
+            [embed_radiant_val, embed_radiant_val]), axis=1)
+        embed_dire_val_self = tf.math.reduce_sum(self.attension_layer(
+            [embed_dire_val, embed_dire_val]), axis=1)
+
+        embed_radiant_val_cross = tf.math.reduce_sum(self.attension_layer(
+            [embed_dire_val, embed_radiant_val]), axis=1)
+        embed_dire_val_cross = tf.math.reduce_sum(self.attension_layer(
+            [embed_radiant_val, embed_dire_val]), axis=1)
+        x = tf.concat([embed_radiant_val_self, embed_radiant_val_cross,
+                       embed_dire_val_self, embed_dire_val_cross], axis=1)
+        for dense_layer in self.dense_layers:
+            if training:
+                x = self.dropout(x, training=training)
+            x = dense_layer(x)
+        return x
+
+
 def main():
     training_dataset = tf.data.TFRecordDataset(TRAINING_DATA_FILE)
     training_dataset = training_dataset.map(_get_feature_parser())
-    training_dataset = training_dataset.shuffle(10000).batch(1024)
+    training_dataset = training_dataset.shuffle(10000).batch(128)
 
     eval_dataset = tf.data.TFRecordDataset(EVAL_DATA_FILE)
     eval_dataset = eval_dataset.map(_get_feature_parser())
     eval_dataset = eval_dataset.batch(1024)
 
-    model = MyModel()
+    model = AttensionModel()
     model.compile(optimizer=tf.keras.optimizers.Adam(0.001),
                   loss=tf.keras.losses.BinaryCrossentropy(), metrics=['binary_accuracy'])
 
@@ -89,7 +138,7 @@ def main():
             verbose=1),
         tf.keras.callbacks.TensorBoard(log_dir=TENSORBOARD_DIR)
     ]
-    model.fit(training_dataset, epochs=64, callbacks=callbacks,
+    model.fit(training_dataset, epochs=10, callbacks=callbacks,
               validation_data=eval_dataset)
     model.save(MODEL_DIR)
 
