@@ -4,6 +4,7 @@ API_KEY
 .vscode
 *.binary
 *.tfrecord
-/models
-/data
-/visualization
+models/
+data/
+visualization/
+.ipynb_checkpoints
