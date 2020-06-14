@@ -1,6 +1,6 @@
 # DeepDota
 
-Use the power of computing to help me play better.
+Use the power of computing to help human play Dota better.
 
 ## Data downloader(Completed)
 
