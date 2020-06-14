@@ -3,12 +3,14 @@ import pickle
 
 from functools import partial
 from multiprocessing import Pool
+from tqdm import tqdm
 
 NUM_MATCHES = 50000
 MATCH_LIST_FILE = 'match_data_50000.binary'
 MATCH_DETAILS_FILE = 'match_detail_50000.binary'
-DOWNLOAD_MATCH_LIST = True
+DOWNLOAD_MATCH_LIST = False
 DOWNLOAD_MATCH_DETAILS = True
+MAX_MATCHES_PER_SHARD = 10000
 API_KEY_FILE = 'API_KEY'
 
 
@@ -35,7 +37,6 @@ def download_match_detail(match, api_key):
         'https://api.opendota.com/api/matches/%d?api_key=%s' % (match_id, api_key))
     if res.status_code == 200:
         match.update(res.json())
-        print('succeed: match %d' % (match_id))
     else:
         match = None
         print('failed: match %d' % (match_id))
@@ -54,13 +55,20 @@ def main():
         with open(MATCH_LIST_FILE, 'rb') as f:
             match_list = pickle.load(f)[:NUM_MATCHES]
     if DOWNLOAD_MATCH_DETAILS:
-        pool = Pool(4)
         download_match_detail_with_api = partial(
             download_match_detail, api_key=api_key)
-        match_details = pool.map(download_match_detail_with_api, match_list)
-
-        with open(MATCH_DETAILS_FILE, 'w+b') as f:
-            pickle.dump(match_details, f)
+        num_shard = len(match_list)//MAX_MATCHES_PER_SHARD + 1
+        with Pool(4) as pool:
+            for shard in range(num_shard):
+                print('downloading shard %d' % (shard))
+                begin = shard*MAX_MATCHES_PER_SHARD
+                end = (shard+1)*MAX_MATCHES_PER_SHARD if (shard+1) * \
+                    MAX_MATCHES_PER_SHARD < len(match_list) else len(match_list)
+                shard_matches = match_list[begin: end]
+                match_details = list(tqdm(pool.imap(
+                    download_match_detail_with_api, shard_matches), total=len(shard_matches)))
+                with open(MATCH_DETAILS_FILE+'.%d-of-%d' % (shard, num_shard), 'w+b') as f:
+                    pickle.dump(match_details, f)
 
 
 if __name__ == '__main__':

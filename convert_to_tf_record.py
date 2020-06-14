@@ -1,7 +1,8 @@
 import pickle
+import glob
 import tensorflow as tf
 
-DATA_FILE = 'match_detail.binary'
+DATA_FILE_PATTERN = 'match_detail_50000.binary.*'
 TF_RECORD_FILE = 'training_data.tfrecord'
 
 
@@ -25,12 +26,14 @@ def serialize_example(match):
 
 
 def main():
-    with open(DATA_FILE, 'rb') as f:
-        all_match_details = pickle.load(f)
+    files = glob.glob(DATA_FILE_PATTERN)
     with tf.io.TFRecordWriter(TF_RECORD_FILE) as writer:
-        for match in all_match_details:
-            example = serialize_example(match)
-            writer.write(example)
+        for file in files:
+            with open(file, 'rb') as f:
+                all_match_details = pickle.load(f)
+                for match in all_match_details:
+                    example = serialize_example(match)
+                    writer.write(example)
 
 
 if __name__ == '__main__':
