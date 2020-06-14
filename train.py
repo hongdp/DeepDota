@@ -4,7 +4,7 @@ TRAINING_DATA_FILE = 'data/training_data_50k_train.tfrecord'
 EVAL_DATA_FILE = 'data/training_data_50k_test.tfrecord'
 MODEL_NAME = 'prediction_model_16'
 MODEL_DIR = 'models/' + MODEL_NAME
-TENSORBOARD_DIR = 'logs/' + MODEL_NAME
+TENSORBOARD_DIR = MODEL_DIR + '/logs/'
 
 
 def _get_feature_parser():
@@ -81,7 +81,7 @@ def main():
     callbacks = [
         tf.keras.callbacks.EarlyStopping(
             # Stop training when `val_loss` is no longer improving
-            monitor='val_binary_accuracy',
+            monitor='val_loss',
             # "no longer improving" being defined as "no better than 1e-2 less"
             min_delta=0,
             # "no longer improving" being further defined as "for at least 2 epochs"
